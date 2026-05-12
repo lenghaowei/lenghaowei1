@@ -1,0 +1,1713 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>财务分析系统</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    
+    <!-- 自定义配置 -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#165DFF',
+                        secondary: '#36CFC9',
+                        accent: '#722ED1',
+                        success: '#52C41A',
+                        warning: '#FAAD14',
+                        danger: '#F5222D',
+                        info: '#1890FF',
+                        light: '#F5F7FA',
+                        dark: '#1D2129',
+                    },
+                    fontFamily: {
+                        inter: ['Inter', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .card-shadow {
+                box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            }
+            .hover-scale {
+                transition: transform 0.3s ease;
+            }
+            .hover-scale:hover {
+                transform: scale(1.02);
+            }
+            .gradient-bg {
+                background: linear-gradient(135deg, #165DFF 0%, #722ED1 100%);
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 font-inter text-dark">
+    <!-- 顶部导航 -->
+    <header class="gradient-bg text-white shadow-lg">
+        <div class="container mx-auto px-4 py-6">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <i class="fas fa-chart-line text-2xl"></i>
+                    <h1 class="text-2xl font-bold">财务分析系统</h1>
+                </div>
+                <div class="hidden md:flex items-center space-x-6">
+                    <a href="#" class="hover:text-secondary transition-colors">首页</a>
+                    <a href="#" class="hover:text-secondary transition-colors">使用帮助</a>
+                    <a href="#" class="hover:text-secondary transition-colors">关于系统</a>
+                </div>
+                <button class="md:hidden text-white focus:outline-none">
+                    <i class="fas fa-bars text-xl"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- 主内容区 -->
+    <main class="container mx-auto px-4 py-8">
+        <!-- 上传区域 -->
+        <section class="mb-12">
+            <div class="bg-white rounded-xl card-shadow p-6">
+                <h2 class="text-xl font-bold mb-4 flex items-center">
+                    <i class="fas fa-upload text-primary mr-2"></i>
+                    文件上传
+                </h2>
+                <div class="grid md:grid-cols-2 gap-6">
+                    <!-- 财务报表上传 -->
+                    <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-primary transition-colors">
+                        <i class="fas fa-file-excel text-4xl text-success mb-3"></i>
+                        <h3 class="font-semibold mb-2">财务报表上传</h3>
+                        <p class="text-sm text-gray-500 mb-4">支持Excel格式 (.xlsx, .xls)</p>
+                        <label class="bg-primary text-white px-4 py-2 rounded-lg cursor-pointer hover:bg-primary/90 transition-colors">
+                            <input type="file" id="financialReportFile" accept=".xlsx,.xls" multiple class="hidden">
+                            选择文件
+                        </label>
+                        <p id="financialReportFileName" class="mt-2 text-sm text-gray-500"></p>
+                    </div>
+                    
+                    <!-- 发票明细上传 -->
+                    <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-primary transition-colors">
+                        <i class="fas fa-file-invoice-dollar text-4xl text-info mb-3"></i>
+                        <h3 class="font-semibold mb-2">发票明细上传</h3>
+                        <p class="text-sm text-gray-500 mb-4">支持Excel格式 (.xlsx, .xls)</p>
+                        <label class="bg-primary text-white px-4 py-2 rounded-lg cursor-pointer hover:bg-primary/90 transition-colors">
+                            <input type="file" id="invoiceFile" accept=".xlsx,.xls" multiple class="hidden">
+                            选择文件
+                        </label>
+                        <p id="invoiceFileName" class="mt-2 text-sm text-gray-500"></p>
+                    </div>
+                </div>
+                <div class="mt-6 text-center">
+                    <button id="analyzeBtn" class="bg-primary text-white px-6 py-3 rounded-lg font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                        <i class="fas fa-play mr-2"></i>开始分析
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- 分析结果区域 -->
+        <section id="resultsSection" class="hidden">
+            <!-- 标签页导航 -->
+            <div class="mb-6 border-b border-gray-200">
+                <ul class="flex flex-wrap -mb-px" id="tabs" role="tablist">
+                    <li class="mr-2" role="presentation">
+                        <button class="inline-block p-4 border-b-2 border-primary text-primary font-semibold" id="financial-tab" data-tab="financial" aria-selected="true">
+                            <i class="fas fa-chart-pie mr-2"></i>财务报表分析
+                        </button>
+                    </li>
+                    <li class="mr-2" role="presentation">
+                        <button class="inline-block p-4 border-b-2 border-transparent hover:text-gray-600 hover:border-gray-300" id="invoice-tab" data-tab="invoice" aria-selected="false">
+                            <i class="fas fa-file-invoice mr-2"></i>发票明细分析
+                        </button>
+                    </li>
+                    <li class="mr-2" role="presentation">
+                        <button class="inline-block p-4 border-b-2 border-transparent hover:text-gray-600 hover:border-gray-300" id="reconciliation-tab" data-tab="reconciliation" aria-selected="false">
+                            <i class="fas fa-balance-scale mr-2"></i>勾稽关系核验
+                        </button>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- 财务报表分析内容 -->
+            <div id="financial-content" class="tab-content">
+                <!-- 财务指标概览卡片 -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <div class="bg-white rounded-xl card-shadow p-6 hover-scale">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm text-gray-500">净资产收益率(ROE)</p>
+                                <h3 class="text-2xl font-bold text-primary" id="roeValue">-</h3>
+                            </div>
+                            <div class="bg-primary/10 p-3 rounded-full">
+                                <i class="fas fa-percentage text-primary"></i>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white rounded-xl card-shadow p-6 hover-scale">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm text-gray-500">资产负债率</p>
+                                <h3 class="text-2xl font-bold text-warning" id="debtRatioValue">-</h3>
+                            </div>
+                            <div class="bg-warning/10 p-3 rounded-full">
+                                <i class="fas fa-balance-scale text-warning"></i>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white rounded-xl card-shadow p-6 hover-scale">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm text-gray-500">销售毛利率</p>
+                                <h3 class="text-2xl font-bold text-success" id="grossMarginValue">-</h3>
+                            </div>
+                            <div class="bg-success/10 p-3 rounded-full">
+                                <i class="fas fa-chart-line text-success"></i>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white rounded-xl card-shadow p-6 hover-scale">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm text-gray-500">流动比率</p>
+                                <h3 class="text-2xl font-bold text-info" id="currentRatioValue">-</h3>
+                            </div>
+                            <div class="bg-info/10 p-3 rounded-full">
+                                <i class="fas fa-tint text-info"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 图表区域 -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+                    <!-- 盈利能力雷达图 -->
+                    <div class="bg-white rounded-xl card-shadow p-6">
+                        <h3 class="text-lg font-semibold mb-4">盈利能力分析</h3>
+                        <div class="h-80">
+                            <canvas id="profitabilityChart"></canvas>
+                        </div>
+                    </div>
+                    
+                    <!-- 偿债能力柱状图 -->
+                    <div class="bg-white rounded-xl card-shadow p-6">
+                        <h3 class="text-lg font-semibold mb-4">偿债能力分析</h3>
+                        <div class="h-80">
+                            <canvas id="solvencyChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 详细财务指标表格 -->
+                <div class="bg-white rounded-xl card-shadow p-6">
+                    <h3 class="text-lg font-semibold mb-4">详细财务指标</h3>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full table-auto">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">类别</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">科目</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">计算公式</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">计算结果</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">行业标准</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">分析</th>
+                                </tr>
+                            </thead>
+                            <tbody id="financialIndicatorsTable" class="bg-white divide-y divide-gray-200">
+                                <!-- 表格内容将通过JavaScript动态生成 -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 发票明细分析内容 -->
+            <div id="invoice-content" class="tab-content hidden">
+                <!-- 开票金额汇总卡片 -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+                    <div class="bg-white rounded-xl card-shadow p-6 hover-scale">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm text-gray-500">近1个月开票金额</p>
+                                <h3 class="text-2xl font-bold text-primary" id="month1Amount">-</h3>
+                            </div>
+                            <div class="bg-primary/10 p-3 rounded-full">
+                                <i class="fas fa-calendar-alt text-primary"></i>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white rounded-xl card-shadow p-6 hover-scale">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm text-gray-500">近3个月开票金额</p>
+                                <h3 class="text-2xl font-bold text-success" id="month3Amount">-</h3>
+                            </div>
+                            <div class="bg-success/10 p-3 rounded-full">
+                                <i class="fas fa-chart-bar text-success"></i>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white rounded-xl card-shadow p-6 hover-scale">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm text-gray-500">近12个月开票金额</p>
+                                <h3 class="text-2xl font-bold text-info" id="month12Amount">-</h3>
+                            </div>
+                            <div class="bg-info/10 p-3 rounded-full">
+                                <i class="fas fa-chart-line text-info"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 增长率分析 -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                    <div class="bg-white rounded-xl card-shadow p-6">
+                        <h3 class="text-lg font-semibold mb-4">环比增长率</h3>
+                        <div class="h-64">
+                            <canvas id="momChart"></canvas>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white rounded-xl card-shadow p-6">
+                        <h3 class="text-lg font-semibold mb-4">同比增长率</h3>
+                        <div class="h-64">
+                            <canvas id="yoyChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 开票详情展示 -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+                    <div class="bg-white rounded-xl card-shadow p-6">
+                        <h3 class="text-lg font-semibold mb-4">开票详情</h3>
+                        <ul class="space-y-4">
+                            <li class="flex justify-between">
+                                <span class="text-gray-600">近45日开票记录</span>
+                                <span id="recentInvoiceStatus" class="font-medium">-</span>
+                            </li>
+                            <li class="flex justify-between">
+                                <span class="text-gray-600">近12个月断票月数</span>
+                                <span id="invoiceGapMonths" class="font-medium">-</span>
+                            </li>
+                            <li class="flex justify-between">
+                                <span class="text-gray-600">近12个月下游客户数量</span>
+                                <span id="customerCount" class="font-medium">-</span>
+                            </li>
+                            <li class="flex justify-between">
+                                <span class="text-gray-600">近12个月红冲金额占比</span>
+                                <span id="redInvoiceRatio" class="font-medium">-</span>
+                            </li>
+                            <li class="flex justify-between">
+                                <span class="text-gray-600">近12个月作废发票占比</span>
+                                <span id="voidInvoiceRatio" class="font-medium">-</span>
+                            </li>
+                        </ul>
+                    </div>
+                    
+                    <div class="bg-white rounded-xl card-shadow p-6">
+                        <h3 class="text-lg font-semibold mb-4">近3个月主要客户</h3>
+                        <div id="topCustomersList" class="space-y-2">
+                            <!-- 客户列表将通过JavaScript动态生成 -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 近两年开票信息报表 -->
+                <div class="bg-white rounded-xl card-shadow p-6">
+                    <h3 class="text-lg font-semibold mb-4">近两年开票信息报表</h3>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full table-auto">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">月份</th>
+                                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">2024年</th>
+                                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">2025年</th>
+                                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">2026年</th>
+                                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">同比增长</th>
+                                </tr>
+                            </thead>
+                            <tbody id="invoiceMonthlyTable" class="bg-white divide-y divide-gray-200">
+                                <!-- 表格内容将通过JavaScript动态生成 -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 勾稽关系核验内容 -->
+            <div id="reconciliation-content" class="tab-content hidden">
+                <!-- 勾稽关系概览卡片 -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                    <div class="bg-white rounded-xl card-shadow p-6 hover-scale">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm text-gray-500">核验通过项</p>
+                                <h3 class="text-2xl font-bold text-success" id="passedChecks">-</h3>
+                            </div>
+                            <div class="bg-success/10 p-3 rounded-full">
+                                <i class="fas fa-check-circle text-success"></i>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white rounded-xl card-shadow p-6 hover-scale">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm text-gray-500">核验警告项</p>
+                                <h3 class="text-2xl font-bold text-warning" id="warningChecks">-</h3>
+                            </div>
+                            <div class="bg-warning/10 p-3 rounded-full">
+                                <i class="fas fa-exclamation-triangle text-warning"></i>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white rounded-xl card-shadow p-6 hover-scale">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm text-gray-500">核验失败项</p>
+                                <h3 class="text-2xl font-bold text-danger" id="failedChecks">-</h3>
+                            </div>
+                            <div class="bg-danger/10 p-3 rounded-full">
+                                <i class="fas fa-times-circle text-danger"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 勾稽关系详细核验结果 -->
+                <div class="bg-white rounded-xl card-shadow p-6 mb-8">
+                    <h3 class="text-lg font-semibold mb-4 flex items-center">
+                        <i class="fas fa-list-check text-primary mr-2"></i>
+                        详细核验结果
+                    </h3>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full table-auto">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">核验项目</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">核验公式</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">实际结果</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">预期结果</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">状态</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">说明</th>
+                                </tr>
+                            </thead>
+                            <tbody id="reconciliationTable" class="bg-white divide-y divide-gray-200">
+                                <!-- 表格内容将通过JavaScript动态生成 -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- 勾稽关系图表 -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+                    <div class="bg-white rounded-xl card-shadow p-6">
+                        <h3 class="text-lg font-semibold mb-4 flex items-center">
+                            <i class="fas fa-chart-pie text-primary mr-2"></i>
+                            核验结果分布
+                        </h3>
+                        <div class="h-80">
+                            <canvas id="reconciliationChart"></canvas>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white rounded-xl card-shadow p-6">
+                        <h3 class="text-lg font-semibold mb-4 flex items-center">
+                            <i class="fas fa-chart-bar text-primary mr-2"></i>
+                            三大报表勾稽关系
+                        </h3>
+                        <div class="h-80 flex items-center justify-center">
+                            <div id="reconciliationDiagram" class="w-full h-full">
+                                <!-- 图表将通过JavaScript动态生成 -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 勾稽关系问题汇总 -->
+                <div class="bg-white rounded-xl card-shadow p-6">
+                    <h3 class="text-lg font-semibold mb-4 flex items-center">
+                        <i class="fas fa-exclamation-circle text-primary mr-2"></i>
+                        问题汇总与建议
+                    </h3>
+                    <div id="reconciliationIssues" class="space-y-4">
+                        <!-- 问题汇总将通过JavaScript动态生成 -->
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- 页脚 -->
+    <footer class="bg-gray-800 text-white py-8 mt-12">
+        <div class="container mx-auto px-4">
+            <div class="flex flex-col md:flex-row justify-between items-center">
+                <div class="mb-4 md:mb-0">
+                    <div class="flex items-center space-x-2">
+                        <i class="fas fa-chart-line"></i>
+                        <span class="font-bold">财务分析系统</span>
+                    </div>
+                    <p class="text-gray-400 text-sm mt-2">专业的财务数据分析工具</p>
+                </div>
+                <div class="flex space-x-6">
+                    <a href="#" class="text-gray-400 hover:text-white transition-colors">
+                        <i class="fas fa-question-circle"></i>
+                        <span class="ml-1">帮助中心</span>
+                    </a>
+                    <a href="#" class="text-gray-400 hover:text-white transition-colors">
+                        <i class="fas fa-file-alt"></i>
+                        <span class="ml-1">使用文档</span>
+                    </a>
+                    <a href="#" class="text-gray-400 hover:text-white transition-colors">
+                        <i class="fas fa-envelope"></i>
+                        <span class="ml-1">联系我们</span>
+                    </a>
+                </div>
+            </div>
+            <div class="border-t border-gray-700 mt-6 pt-6 text-center text-gray-400 text-sm">
+                © 2024 财务分析系统 版权所有
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // 全局变量
+        let financialData = [];
+        let invoiceData = [];
+        let financialCharts = {};
+        let invoiceCharts = {};
+        let uploadedFinancialFiles = [];
+        let uploadedInvoiceFiles = [];
+
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            // 文件上传事件监听
+            document.getElementById('financialReportFile').addEventListener('change', handleFinancialFileUpload);
+            document.getElementById('invoiceFile').addEventListener('change', handleInvoiceFileUpload);
+            
+            // 分析按钮点击事件
+            document.getElementById('analyzeBtn').addEventListener('click', performAnalysis);
+            
+            // 标签页切换
+            document.querySelectorAll('#tabs button').forEach(tab => {
+                tab.addEventListener('click', function() {
+                    const tabId = this.getAttribute('data-tab');
+                    switchTab(tabId);
+                });
+            });
+        });
+
+        // 处理财务报表文件上传
+        function handleFinancialFileUpload(event) {
+            const files = event.target.files;
+            if (files.length > 0) {
+                // 清空之前的数据和文件列表
+                financialData = [];
+                uploadedFinancialFiles = [];
+                
+                // 更新显示的文件名
+                const fileNames = Array.from(files).map(file => file.name).join(', ');
+                document.getElementById('financialReportFileName').textContent = files.length > 3 ? 
+                    `${files.length}个文件: ${fileNames.substring(0, 100)}...` : fileNames;
+                
+                // 读取所有文件
+                Array.from(files).forEach(file => {
+                    uploadedFinancialFiles.push(file.name);
+                    readExcelFile(file, 'financial');
+                });
+                
+                checkFilesUploaded();
+            }
+        }
+
+        // 处理发票明细文件上传
+        function handleInvoiceFileUpload(event) {
+            const files = event.target.files;
+            if (files.length > 0) {
+                // 清空之前的数据和文件列表
+                invoiceData = [];
+                uploadedInvoiceFiles = [];
+                
+                // 更新显示的文件名
+                const fileNames = Array.from(files).map(file => file.name).join(', ');
+                document.getElementById('invoiceFileName').textContent = files.length > 3 ? 
+                    `${files.length}个文件: ${fileNames.substring(0, 100)}...` : fileNames;
+                
+                // 读取所有文件
+                Array.from(files).forEach(file => {
+                    uploadedInvoiceFiles.push(file.name);
+                    readExcelFile(file, 'invoice');
+                });
+                
+                checkFilesUploaded();
+            }
+        }
+
+        // 读取Excel文件
+        function readExcelFile(file, type) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    
+                    // 获取第一个工作表
+                    const firstSheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheetName];
+                    
+                    // 读取数据时处理表头
+                    const jsonData = XLSX.utils.sheet_to_json(worksheet, {
+                        header: 1, // 先读取为数组格式
+                        defval: '' // 空单元格填充为空字符串
+                    });
+                    
+                    if (jsonData.length === 0) {
+                        console.warn(`文件 ${file.name} 没有数据`);
+                        return;
+                    }
+                    
+                    // 处理表头
+                    const headers = jsonData[0];
+                    const rows = jsonData.slice(1);
+                    
+                    // 将数组转换为对象数组
+                    const processedData = rows.map(row => {
+                        const obj = {};
+                        headers.forEach((header, index) => {
+                            if (header) { // 只处理有表头的列
+                                obj[header] = row[index] !== undefined ? row[index] : '';
+                            }
+                        });
+                        return obj;
+                    }).filter(row => {
+                        // 过滤空行
+                        return Object.values(row).some(value => value !== '' && value !== null && value !== undefined);
+                    });
+                    
+                    // 合并数据到数组中
+                    if (type === 'financial') {
+                        financialData = financialData.concat(processedData);
+                    } else {
+                        invoiceData = invoiceData.concat(processedData);
+                    }
+                    
+                    console.log(`文件 ${file.name} 加载完成，${type} 数据总量:`, type === 'financial' ? financialData.length : invoiceData.length);
+                    
+                    // 检查是否所有文件都已读取完成
+                    const expectedFiles = type === 'financial' ? uploadedFinancialFiles.length : uploadedInvoiceFiles.length;
+                    const currentFiles = type === 'financial' ? 
+                        uploadedFinancialFiles.filter(name => name !== '').length : 
+                        uploadedInvoiceFiles.filter(name => name !== '').length;
+                    
+                    if (expectedFiles > 0 && currentFiles > 0) {
+                        checkFilesUploaded();
+                    }
+                    
+                } catch (error) {
+                    console.error(`读取文件 ${file.name} 时出错:`, error);
+                    alert(`读取文件 ${file.name} 时出错: ${error.message}`);
+                }
+            };
+            
+            reader.onerror = function(error) {
+                console.error(`读取文件 ${file.name} 时出错:`, error);
+                alert(`读取文件 ${file.name} 时出错，请检查文件格式是否正确`);
+            };
+            
+            reader.readAsArrayBuffer(file);
+        }
+
+        // 检查文件是否都已上传
+        function checkFilesUploaded() {
+            // 只要上传了任一类型的数据就可以启用分析按钮
+            if (financialData.length > 0 || invoiceData.length > 0) {
+                document.getElementById('analyzeBtn').disabled = false;
+            } else {
+                document.getElementById('analyzeBtn').disabled = true;
+            }
+        }
+
+        // 执行分析
+        function performAnalysis() {
+            // 显示结果区域
+            document.getElementById('resultsSection').classList.remove('hidden');
+            
+            // 根据上传的数据类型执行相应的分析
+            if (financialData.length > 0) {
+                analyzeFinancialData();
+                analyzeReconciliation();
+                // 默认显示财务报表分析标签页
+                switchTab('financial');
+            } else if (invoiceData.length > 0) {
+                analyzeInvoiceData();
+                // 默认显示发票明细分析标签页
+                switchTab('invoice');
+            }
+        }
+
+        // 分析财务数据
+        function analyzeFinancialData() {
+            if (!financialData || financialData.length === 0) {
+                alert('财务数据为空，请重新上传');
+                return;
+            }
+            
+            console.log('合并后的财务数据总量:', financialData.length);
+
+            // 模拟计算一些关键指标（实际应用中需要根据具体数据结构进行计算）
+            const roe = (Math.random() * 15 + 5).toFixed(2); // 5%-20%
+            const debtRatio = (Math.random() * 40 + 20).toFixed(2); // 20%-60%
+            const grossMargin = (Math.random() * 30 + 10).toFixed(2); // 10%-40%
+            const currentRatio = (Math.random() * 1.5 + 0.5).toFixed(2); // 0.5-2.0
+
+            // 更新概览卡片
+            document.getElementById('roeValue').textContent = roe + '%';
+            document.getElementById('debtRatioValue').textContent = debtRatio + '%';
+            document.getElementById('grossMarginValue').textContent = grossMargin + '%';
+            document.getElementById('currentRatioValue').textContent = currentRatio;
+
+            // 创建盈利能力雷达图
+            createProfitabilityChart();
+            
+            // 创建偿债能力柱状图
+            createSolvencyChart();
+            
+            // 生成详细财务指标表格
+            generateFinancialIndicatorsTable();
+        }
+
+        // 创建盈利能力雷达图
+        function createProfitabilityChart() {
+            const ctx = document.getElementById('profitabilityChart').getContext('2d');
+            
+            // 销毁旧图表
+            if (financialCharts.profitability) {
+                financialCharts.profitability.destroy();
+            }
+            
+            // 模拟数据
+            const data = {
+                labels: ['销售毛利率', '销售净利率', '净资产收益率', '总资产收益率', '每股收益'],
+                datasets: [{
+                    label: '公司指标',
+                    data: [
+                        parseFloat((Math.random() * 30 + 10).toFixed(2)),
+                        parseFloat((Math.random() * 15 + 5).toFixed(2)),
+                        parseFloat((Math.random() * 15 + 5).toFixed(2)),
+                        parseFloat((Math.random() * 10 + 2).toFixed(2)),
+                        parseFloat((Math.random() * 2 + 0.5).toFixed(2))
+                    ],
+                    backgroundColor: 'rgba(22, 93, 255, 0.2)',
+                    borderColor: 'rgba(22, 93, 255, 1)',
+                    borderWidth: 2,
+                    pointBackgroundColor: 'rgba(22, 93, 255, 1)',
+                    pointBorderColor: '#fff',
+                    pointHoverBackgroundColor: '#fff',
+                    pointHoverBorderColor: 'rgba(22, 93, 255, 1)'
+                }, {
+                    label: '行业平均',
+                    data: [25, 8, 12, 6, 1.2],
+                    backgroundColor: 'rgba(245, 34, 45, 0.2)',
+                    borderColor: 'rgba(245, 34, 45, 1)',
+                    borderWidth: 2,
+                    pointBackgroundColor: 'rgba(245, 34, 45, 1)',
+                    pointBorderColor: '#fff',
+                    pointHoverBackgroundColor: '#fff',
+                    pointHoverBorderColor: 'rgba(245, 34, 45, 1)'
+                }]
+            };
+
+            financialCharts.profitability = new Chart(ctx, {
+                type: 'radar',
+                data: data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        r: {
+                            beginAtZero: true,
+                            max: 40,
+                            ticks: {
+                                stepSize: 10
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        }
+                    }
+                }
+            });
+        }
+
+        // 创建偿债能力柱状图
+        function createSolvencyChart() {
+            const ctx = document.getElementById('solvencyChart').getContext('2d');
+            
+            // 销毁旧图表
+            if (financialCharts.solvency) {
+                financialCharts.solvency.destroy();
+            }
+            
+            // 模拟数据
+            const data = {
+                labels: ['流动比率', '速动比率', '现金比率', '资产负债率(%)', '利息保障倍数'],
+                datasets: [{
+                    label: '公司指标',
+                    data: [
+                        parseFloat((Math.random() * 1.5 + 0.5).toFixed(2)),
+                        parseFloat((Math.random() * 1.2 + 0.3).toFixed(2)),
+                        parseFloat((Math.random() * 0.8 + 0.2).toFixed(2)),
+                        parseFloat((Math.random() * 40 + 20).toFixed(2)),
+                        parseFloat((Math.random() * 10 + 5).toFixed(2))
+                    ],
+                    backgroundColor: [
+                        'rgba(24, 144, 255, 0.7)',
+                        'rgba(54, 207, 201, 0.7)',
+                        'rgba(114, 46, 209, 0.7)',
+                        'rgba(250, 173, 20, 0.7)',
+                        'rgba(82, 196, 26, 0.7)'
+                    ],
+                    borderColor: [
+                        'rgba(24, 144, 255, 1)',
+                        'rgba(54, 207, 201, 1)',
+                        'rgba(114, 46, 209, 1)',
+                        'rgba(250, 173, 20, 1)',
+                        'rgba(82, 196, 26, 1)'
+                    ],
+                    borderWidth: 1
+                }]
+            };
+
+            financialCharts.solvency = new Chart(ctx, {
+                type: 'bar',
+                data: data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    }
+                }
+            });
+        }
+
+        // 生成详细财务指标表格
+        function generateFinancialIndicatorsTable() {
+            const tableBody = document.getElementById('financialIndicatorsTable');
+            tableBody.innerHTML = '';
+
+            // 财务指标数据
+            const indicators = [
+                { category: '营运能力', item: '应收账款周转率', formula: '营业收入÷平均应收账款余额', result: (Math.random() * 5 + 3).toFixed(2), standard: '>4', analysis: '良好' },
+                { category: '营运能力', item: '存货周转率', formula: '营业成本÷平均存货余额', result: (Math.random() * 4 + 2).toFixed(2), standard: '>3', analysis: '一般' },
+                { category: '营运能力', item: '总资产周转率', formula: '营业收入÷平均总资产', result: (Math.random() * 0.8 + 0.2).toFixed(2), standard: '>0.5', analysis: '良好' },
+                { category: '盈利能力', item: '销售毛利率', formula: '(营业收入-营业成本)÷营业收入×100%', result: (Math.random() * 30 + 10).toFixed(2) + '%', standard: '>20%', analysis: '良好' },
+                { category: '盈利能力', item: '销售净利率', formula: '净利润÷营业收入×100%', result: (Math.random() * 15 + 5).toFixed(2) + '%', standard: '>8%', analysis: '良好' },
+                { category: '盈利能力', item: '净资产收益率', formula: '净利润÷平均净资产×100%', result: (Math.random() * 15 + 5).toFixed(2) + '%', standard: '>10%', analysis: '良好' },
+                { category: '偿债能力', item: '流动比率', formula: '流动资产÷流动负债', result: (Math.random() * 1.5 + 0.5).toFixed(2), standard: '>1.5', analysis: '一般' },
+                { category: '偿债能力', item: '速动比率', formula: '(流动资产-存货)÷流动负债', result: (Math.random() * 1.2 + 0.3).toFixed(2), standard: '>1', analysis: '良好' },
+                { category: '偿债能力', item: '资产负债率', formula: '总负债÷总资产×100%', result: (Math.random() * 40 + 20).toFixed(2) + '%', standard: '<60%', analysis: '良好' },
+                { category: '现金流类', item: '销售收现率', formula: '销售商品提供劳务收到现金÷营业收入', result: (Math.random() * 0.3 + 0.8).toFixed(2), standard: '>1', analysis: '一般' }
+            ];
+
+            // 生成表格行
+            indicators.forEach(indicator => {
+                const row = document.createElement('tr');
+                row.className = 'hover:bg-gray-50 transition-colors';
+                
+                const analysisColor = indicator.analysis === '良好' ? 'text-success' : 
+                                     indicator.analysis === '一般' ? 'text-warning' : 'text-danger';
+                
+                row.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${indicator.category}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${indicator.item}</td>
+                    <td class="px-6 py-4 text-sm text-gray-500">${indicator.formula}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-primary">${indicator.result}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${indicator.standard}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium ${analysisColor}">${indicator.analysis}</td>
+                `;
+                
+                tableBody.appendChild(row);
+            });
+        }
+
+        // 分析发票数据
+        function analyzeInvoiceData() {
+            if (!invoiceData || invoiceData.length === 0) {
+                alert('发票数据为空，请重新上传');
+                return;
+            }
+            
+            console.log('合并后的发票数据总量:', invoiceData.length);
+
+            // 模拟计算开票金额
+            const month1Amount = (Math.random() * 500000 + 500000).toFixed(2);
+            const month3Amount = (Math.random() * 1000000 + 1500000).toFixed(2);
+            const month12Amount = (Math.random() * 5000000 + 5000000).toFixed(2);
+
+            // 更新开票金额卡片
+            document.getElementById('month1Amount').textContent = '¥' + formatNumber(month1Amount);
+            document.getElementById('month3Amount').textContent = '¥' + formatNumber(month3Amount);
+            document.getElementById('month12Amount').textContent = '¥' + formatNumber(month12Amount);
+
+            // 创建环比增长率图表
+            createMomChart();
+            
+            // 创建同比增长率图表
+            createYoyChart();
+            
+            // 更新开票详情
+            updateInvoiceDetails();
+            
+            // 生成近两年开票信息报表
+            generateMonthlyInvoiceTable();
+        }
+
+        // 创建环比增长率图表
+        function createMomChart() {
+            const ctx = document.getElementById('momChart').getContext('2d');
+            
+            // 销毁旧图表
+            if (invoiceCharts.mom) {
+                invoiceCharts.mom.destroy();
+            }
+            
+            // 模拟数据
+            const data = {
+                labels: ['近3个月', '近6个月', '近12个月'],
+                datasets: [{
+                    label: '环比增长率',
+                    data: [
+                        parseFloat((Math.random() * 20 - 5).toFixed(2)),
+                        parseFloat((Math.random() * 15 - 3).toFixed(2)),
+                        parseFloat((Math.random() * 10 + 2).toFixed(2))
+                    ],
+                    backgroundColor: [
+                        'rgba(24, 144, 255, 0.7)',
+                        'rgba(54, 207, 201, 0.7)',
+                        'rgba(114, 46, 209, 0.7)'
+                    ],
+                    borderColor: [
+                        'rgba(24, 144, 255, 1)',
+                        'rgba(54, 207, 201, 1)',
+                        'rgba(114, 46, 209, 1)'
+                    ],
+                    borderWidth: 1
+                }]
+            };
+
+            invoiceCharts.mom = new Chart(ctx, {
+                type: 'bar',
+                data: data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return value + '%';
+                                }
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    }
+                }
+            });
+        }
+
+        // 创建同比增长率图表
+        function createYoyChart() {
+            const ctx = document.getElementById('yoyChart').getContext('2d');
+            
+            // 销毁旧图表
+            if (invoiceCharts.yoy) {
+                invoiceCharts.yoy.destroy();
+            }
+            
+            // 模拟数据
+            const quarters = ['Q1', 'Q2', 'Q3', 'Q4'];
+            const data = {
+                labels: quarters,
+                datasets: [{
+                    label: '2025年',
+                    data: quarters.map(() => parseFloat((Math.random() * 15 + 5).toFixed(2))),
+                    borderColor: 'rgba(22, 93, 255, 1)',
+                    backgroundColor: 'rgba(22, 93, 255, 0.1)',
+                    tension: 0.4,
+                    fill: true
+                }, {
+                    label: '2026年',
+                    data: quarters.map(() => parseFloat((Math.random() * 20 + 8).toFixed(2))),
+                    borderColor: 'rgba(82, 196, 26, 1)',
+                    backgroundColor: 'rgba(82, 196, 26, 0.1)',
+                    tension: 0.4,
+                    fill: true
+                }]
+            };
+
+            invoiceCharts.yoy = new Chart(ctx, {
+                type: 'line',
+                data: data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return value + '%';
+                                }
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        }
+                    }
+                }
+            });
+        }
+
+        // 更新开票详情
+        function updateInvoiceDetails() {
+            // 模拟数据
+            const recentInvoiceStatus = Math.random() > 0.2 ? '有' : '无';
+            const invoiceGapMonths = Math.floor(Math.random() * 3);
+            const customerCount = Math.floor(Math.random() * 50 + 10);
+            const redInvoiceRatio = (Math.random() * 5).toFixed(2) + '%';
+            const voidInvoiceRatio = (Math.random() * 2).toFixed(2) + '%';
+
+            // 更新详情
+            document.getElementById('recentInvoiceStatus').textContent = recentInvoiceStatus;
+            document.getElementById('invoiceGapMonths').textContent = invoiceGapMonths + '个月';
+            document.getElementById('customerCount').textContent = customerCount + '家';
+            document.getElementById('redInvoiceRatio').textContent = redInvoiceRatio;
+            document.getElementById('voidInvoiceRatio').textContent = voidInvoiceRatio;
+
+            // 生成主要客户列表
+            generateTopCustomersList();
+        }
+
+        // 生成主要客户列表
+        function generateTopCustomersList() {
+            const customersList = document.getElementById('topCustomersList');
+            customersList.innerHTML = '';
+
+            // 模拟客户数据
+            const customers = [
+                { name: '北京科技有限公司', amount: (Math.random() * 500000 + 100000).toFixed(2) },
+                { name: '上海贸易集团', amount: (Math.random() * 400000 + 80000).toFixed(2) },
+                { name: '广州电子科技', amount: (Math.random() * 300000 + 60000).toFixed(2) },
+                { name: '深圳制造有限公司', amount: (Math.random() * 250000 + 50000).toFixed(2) },
+                { name: '成都信息技术', amount: (Math.random() * 200000 + 40000).toFixed(2) }
+            ];
+
+            // 生成客户列表
+            customers.forEach((customer, index) => {
+                const customerItem = document.createElement('div');
+                customerItem.className = 'flex justify-between items-center p-3 bg-gray-50 rounded-lg';
+                customerItem.innerHTML = `
+                    <div class="flex items-center">
+                        <span class="inline-flex items-center justify-center w-6 h-6 bg-primary text-white text-xs rounded-full mr-2">${index + 1}</span>
+                        <span class="text-sm font-medium">${customer.name}</span>
+                    </div>
+                    <span class="text-sm font-medium text-primary">¥${formatNumber(customer.amount)}</span>
+                `;
+                customersList.appendChild(customerItem);
+            });
+        }
+
+        // 生成近两年开票信息报表
+        function generateMonthlyInvoiceTable() {
+            const tableBody = document.getElementById('invoiceMonthlyTable');
+            tableBody.innerHTML = '';
+
+            // 月份名称
+            const months = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
+
+            // 生成表格行
+            months.forEach((month, index) => {
+                const row = document.createElement('tr');
+                row.className = 'hover:bg-gray-50 transition-colors';
+                
+                // 模拟数据
+                const amount2024 = (Math.random() * 500000 + 300000).toFixed(2);
+                const amount2025 = (Math.random() * 600000 + 350000).toFixed(2);
+                const amount2026 = (Math.random() * 700000 + 400000).toFixed(2);
+                
+                // 计算同比增长
+                const growthRate = (((amount2026 - amount2025) / amount2025) * 100).toFixed(2);
+                const growthColor = parseFloat(growthRate) >= 0 ? 'text-success' : 'text-danger';
+                const growthIcon = parseFloat(growthRate) >= 0 ? '↑' : '↓';
+
+                row.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${month}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">¥${formatNumber(amount2024)}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">¥${formatNumber(amount2025)}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-primary text-right">¥${formatNumber(amount2026)}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium ${growthColor} text-right">${growthIcon} ${Math.abs(growthRate)}%</td>
+                `;
+                
+                tableBody.appendChild(row);
+            });
+        }
+
+        // 切换标签页
+        function switchTab(tabId) {
+            // 隐藏所有内容
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.add('hidden');
+            });
+            
+            // 重置所有标签样式并根据数据类型启用/禁用标签页
+            document.querySelectorAll('#tabs button').forEach(tab => {
+                const tabDataId = tab.getAttribute('data-tab');
+                
+                // 重置样式
+                tab.classList.remove('border-primary', 'text-primary');
+                tab.classList.add('border-transparent', 'hover:text-gray-600', 'hover:border-gray-300');
+                tab.setAttribute('aria-selected', 'false');
+                
+                // 根据数据类型启用/禁用标签页
+                if ((tabDataId === 'financial' || tabDataId === 'reconciliation') && financialData.length === 0) {
+                    tab.disabled = true;
+                    tab.classList.add('opacity-50', 'cursor-not-allowed');
+                } else if (tabDataId === 'invoice' && invoiceData.length === 0) {
+                    tab.disabled = true;
+                    tab.classList.add('opacity-50', 'cursor-not-allowed');
+                } else {
+                    tab.disabled = false;
+                    tab.classList.remove('opacity-50', 'cursor-not-allowed');
+                }
+            });
+            
+            // 显示选中的内容
+            document.getElementById(`${tabId}-content`).classList.remove('hidden');
+            
+            // 更新选中标签样式
+            const activeTab = document.getElementById(`${tabId}-tab`);
+            if (activeTab && !activeTab.disabled) {
+                activeTab.classList.remove('border-transparent', 'hover:text-gray-600', 'hover:border-gray-300');
+                activeTab.classList.add('border-primary', 'text-primary');
+                activeTab.setAttribute('aria-selected', 'true');
+            }
+            
+            // 如果切换到勾稽关系标签页，初始化图表
+            if (tabId === 'reconciliation' && document.getElementById('reconciliationChart')) {
+                createReconciliationChart();
+            }
+        }
+
+        // 数字格式化
+        function formatNumber(num) {
+            return parseFloat(num).toLocaleString('zh-CN', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            });
+        }
+
+        // 分析勾稽关系
+        function analyzeReconciliation() {
+            console.log('开始分析勾稽关系...');
+            
+            // 模拟财务数据
+            const financialData = generateMockFinancialData();
+            
+            // 执行勾稽关系核验
+            const reconciliationResults = performReconciliationChecks(financialData);
+            
+            // 更新概览卡片
+            updateReconciliationSummary(reconciliationResults);
+            
+            // 生成详细核验结果表格
+            generateReconciliationTable(reconciliationResults);
+            
+            // 生成问题汇总和建议
+            generateReconciliationIssues(reconciliationResults);
+            
+            console.log('勾稽关系分析完成');
+        }
+
+        // 生成模拟财务数据
+        function generateMockFinancialData() {
+            // 模拟资产负债表数据
+            const balanceSheet = {
+                current: {
+                    assets: 1500000,
+                    liabilities: 800000,
+                    equity: 700000,
+                   货币资金: 300000,
+                    应收账款: 400000,
+                    存货: 500000,
+                    固定资产净值: 300000,
+                    应付账款: 350000,
+                    短期借款: 250000,
+                    未分配利润: 450000
+                },
+                previous: {
+                    assets: 1300000,
+                    liabilities: 700000,
+                    equity: 600000,
+                    货币资金: 250000,
+                    应收账款: 350000,
+                    存货: 400000,
+                    固定资产净值: 300000,
+                    应付账款: 300000,
+                    短期借款: 200000,
+                    未分配利润: 380000
+                }
+            };
+            
+            // 模拟利润表数据
+            const incomeStatement = {
+                current: {
+                    revenue: 2000000,
+                    cost: 1200000,
+                    grossProfit: 800000,
+                    expenses: 500000,
+                    netIncome: 300000,
+                    营业收入: 2000000,
+                    营业成本: 1200000,
+                    销售费用: 200000,
+                    管理费用: 150000,
+                    财务费用: 50000,
+                    投资收益: 30000,
+                    营业外收入: 20000,
+                    营业外支出: 10000,
+                    所得税费用: 80000,
+                    净利润: 300000
+                },
+                previous: {
+                    revenue: 1800000,
+                    cost: 1100000,
+                    grossProfit: 700000,
+                    expenses: 450000,
+                    netIncome: 250000,
+                    营业收入: 1800000,
+                    营业成本: 1100000,
+                    销售费用: 180000,
+                    管理费用: 140000,
+                    财务费用: 40000,
+                    投资收益: 25000,
+                    营业外收入: 15000,
+                    营业外支出: 80000,
+                    所得税费用: 70000,
+                    净利润: 250000
+                }
+            };
+            
+            // 模拟现金流量表数据
+            const cashFlow = {
+                current: {
+                    operatingCashFlow: 350000,
+                    investingCashFlow: -150000,
+                    financingCashFlow: -50000,
+                    netCashFlow: 150000,
+                    经营活动现金流入: 2100000,
+                    经营活动现金流出: 1750000,
+                    经营活动现金流量净额: 350000,
+                    投资活动现金流入: 50000,
+                    投资活动现金流出: 200000,
+                    投资活动现金流量净额: -150000,
+                    筹资活动现金流入: 100000,
+                    筹资活动现金流出: 150000,
+                    筹资活动现金流量净额: -50000,
+                    现金及现金等价物净增加额: 150000
+                },
+                previous: {
+                    operatingCashFlow: 300000,
+                    investingCashFlow: -120000,
+                    financingCashFlow: -30000,
+                    netCashFlow: 150000,
+                    经营活动现金流量净额: 300000,
+                    投资活动现金流量净额: -120000,
+                    筹资活动现金流量净额: -30000,
+                    现金及现金等价物净增加额: 150000
+                }
+            };
+            
+            return {
+                balanceSheet,
+                incomeStatement,
+                cashFlow
+            };
+        }
+
+        // 执行勾稽关系核验
+        function performReconciliationChecks(financialData) {
+            const { balanceSheet, incomeStatement, cashFlow } = financialData;
+            const results = [];
+            
+            // 1. 资产负债表平衡检查
+            const assetsCurrent = balanceSheet.current.assets;
+            const liabilitiesEquityCurrent = balanceSheet.current.liabilities + balanceSheet.current.equity;
+            results.push({
+                id: 'balance_sheet_balance_current',
+                name: '资产负债表平衡检查（本期）',
+                formula: '资产总计 = 负债合计 + 所有者权益合计',
+                actual: `${formatNumber(assetsCurrent)} = ${formatNumber(liabilitiesEquityCurrent)}`,
+                expected: '等式成立',
+                status: Math.abs(assetsCurrent - liabilitiesEquityCurrent) < 0.01 ? 'passed' : 'failed',
+                description: assetsCurrent === liabilitiesEquityCurrent ? '资产负债表平衡' : '资产负债表不平衡，可能存在数据错误'
+            });
+            
+            // 2. 利润表勾稽检查
+            const grossProfitCalculated = incomeStatement.current.营业收入 - incomeStatement.current.营业成本;
+            const grossProfitReported = incomeStatement.current.grossProfit;
+            results.push({
+                id: 'income_statement_gross_profit',
+                name: '利润表毛利率勾稽',
+                formula: '营业收入 - 营业成本 = 营业毛利',
+                actual: `${formatNumber(incomeStatement.current.营业收入)} - ${formatNumber(incomeStatement.current.营业成本)} = ${formatNumber(grossProfitCalculated)}`,
+                expected: `等于 ${formatNumber(grossProfitReported)}`,
+                status: Math.abs(grossProfitCalculated - grossProfitReported) < 0.01 ? 'passed' : 'failed',
+                description: grossProfitCalculated === grossProfitReported ? '利润表毛利率计算正确' : '毛利率计算错误'
+            });
+            
+            // 3. 未分配利润勾稽检查
+            const netIncomeCurrent = incomeStatement.current.净利润;
+            const retainedEarningsChange = balanceSheet.current.未分配利润 - balanceSheet.previous.未分配利润;
+            const dividendEstimated = netIncomeCurrent - retainedEarningsChange;
+            results.push({
+                id: 'retained_earnings_reconciliation',
+                name: '未分配利润勾稽',
+                formula: '本期净利润 - 本期分配股利 ≈ 未分配利润变动',
+                actual: `${formatNumber(netIncomeCurrent)} - ${formatNumber(dividendEstimated)} ≈ ${formatNumber(retainedEarningsChange)}`,
+                expected: '近似相等',
+                status: Math.abs(netIncomeCurrent - retainedEarningsChange) < 10000 ? 'passed' : 'warning',
+                description: Math.abs(netIncomeCurrent - retainedEarningsChange) < 10000 ? 
+                    `未分配利润勾稽关系合理，推测本期分配股利约 ${formatNumber(dividendEstimated)}` : 
+                    '未分配利润变动与净利润差异较大，可能存在大额股利分配或会计调整'
+            });
+            
+            // 4. 现金流量表与资产负债表勾稽
+            const cashChangeReported = cashFlow.current.现金及现金等价物净增加额;
+            const cashChangeCalculated = balanceSheet.current.货币资金 - balanceSheet.previous.货币资金;
+            results.push({
+                id: 'cash_flow_balance_sheet_reconciliation',
+                name: '现金流量表与资产负债表勾稽',
+                formula: '现金流量表净增加额 = 货币资金期末余额 - 货币资金期初余额',
+                actual: `${formatNumber(cashChangeReported)} = ${formatNumber(cashChangeCalculated)}`,
+                expected: '等式成立',
+                status: Math.abs(cashChangeReported - cashChangeCalculated) < 0.01 ? 'passed' : 'failed',
+                description: cashChangeReported === cashChangeCalculated ? 
+                    '现金流量表与资产负债表货币资金勾稽关系正确' : 
+                    '现金流量表与资产负债表货币资金不一致，可能存在现金等价物分类差异'
+            });
+            
+            // 5. 经营活动现金流与净利润勾稽
+            const operatingCashFlow = cashFlow.current.经营活动现金流量净额;
+            const netIncome = incomeStatement.current.净利润;
+            const cashFlowNetIncomeDiff = operatingCashFlow - netIncome;
+            results.push({
+                id: 'operating_cash_flow_net_income',
+                name: '经营活动现金流与净利润勾稽',
+                formula: '经营活动现金流量净额 ≈ 净利润 + 非现金项目调整',
+                actual: `${formatNumber(operatingCashFlow)} vs ${formatNumber(netIncome)} (差异: ${formatNumber(cashFlowNetIncomeDiff)})`,
+                expected: '差异合理',
+                status: Math.abs(cashFlowNetIncomeDiff) < netIncome * 0.5 ? 'passed' : 'warning',
+                description: Math.abs(cashFlowNetIncomeDiff) < netIncome * 0.3 ? 
+                    '经营活动现金流与净利润匹配度良好' : 
+                    Math.abs(cashFlowNetIncomeDiff) < netIncome * 0.5 ? 
+                    '经营活动现金流与净利润存在一定差异，属于正常范围' : 
+                    '经营活动现金流与净利润差异较大，可能存在营运资金管理问题'
+            });
+            
+            // 6. 应收账款与收入勾稽
+            const revenueGrowth = (incomeStatement.current.营业收入 - incomeStatement.previous.营业收入) / incomeStatement.previous.营业收入;
+            const arGrowth = (balanceSheet.current.应收账款 - balanceSheet.previous.应收账款) / balanceSheet.previous.应收账款;
+            results.push({
+                id: 'accounts_receivable_revenue',
+                name: '应收账款与收入勾稽',
+                formula: '应收账款增长率 ≈ 营业收入增长率',
+                actual: `应收账款增长率: ${(arGrowth * 100).toFixed(1)}%, 收入增长率: ${(revenueGrowth * 100).toFixed(1)}%`,
+                expected: '增长率相近',
+                status: Math.abs(arGrowth - revenueGrowth) < 0.2 ? 'passed' : 'warning',
+                description: Math.abs(arGrowth - revenueGrowth) < 0.1 ? 
+                    '应收账款与收入增长匹配' : 
+                    arGrowth > revenueGrowth ? 
+                    '应收账款增长快于收入增长，可能存在回款问题' : 
+                    '应收账款增长慢于收入增长，回款情况良好'
+            });
+            
+            // 7. 存货与成本勾稽
+            const costGrowth = (incomeStatement.current.营业成本 - incomeStatement.previous.营业成本) / incomeStatement.previous.营业成本;
+            const inventoryGrowth = (balanceSheet.current.存货 - balanceSheet.previous.存货) / balanceSheet.previous.存货;
+            results.push({
+                id: 'inventory_cost_reconciliation',
+                name: '存货与成本勾稽',
+                formula: '存货增长率 ≈ 营业成本增长率',
+                actual: `存货增长率: ${(inventoryGrowth * 100).toFixed(1)}%, 成本增长率: ${(costGrowth * 100).toFixed(1)}%`,
+                expected: '增长率相近',
+                status: Math.abs(inventoryGrowth - costGrowth) < 0.25 ? 'passed' : 'warning',
+                description: Math.abs(inventoryGrowth - costGrowth) < 0.15 ? 
+                    '存货与成本增长匹配' : 
+                    inventoryGrowth > costGrowth ? 
+                    '存货增长快于成本增长，可能存在库存积压' : 
+                    '存货增长慢于成本增长，库存周转良好'
+            });
+            
+            // 8. 固定资产与折旧勾稽（简化版）
+            results.push({
+                id: 'fixed_asset_depreciation',
+                name: '固定资产与折旧勾稽',
+                formula: '固定资产净值变动 ≈ 固定资产原值变动 - 本期折旧',
+                actual: `固定资产净值变动: ${formatNumber(balanceSheet.current.固定资产净值 - balanceSheet.previous.固定资产净值)}`,
+                expected: '需要折旧数据验证',
+                status: 'info',
+                description: '固定资产净值保持不变，可能本期没有新增固定资产或折旧与新增资产相抵消'
+            });
+            
+            // 9. 财务费用与借款勾稽
+            const averageDebt = (balanceSheet.current.短期借款 + balanceSheet.previous.短期借款) / 2;
+            const estimatedInterestRate = incomeStatement.current.财务费用 / averageDebt;
+            results.push({
+                id: 'interest_expense_debt_reconciliation',
+                name: '财务费用与借款勾稽',
+                formula: '财务费用 ≈ 平均借款余额 × 利率',
+                actual: `${formatNumber(incomeStatement.current.财务费用)} ≈ ${formatNumber(averageDebt)} × ${(estimatedInterestRate * 100).toFixed(2)}%`,
+                expected: '利息率在合理范围',
+                status: estimatedInterestRate > 0.01 && estimatedInterestRate < 0.2 ? 'passed' : 'warning',
+                description: estimatedInterestRate > 0.01 && estimatedInterestRate < 0.15 ? 
+                    `利息率 ${(estimatedInterestRate * 100).toFixed(2)}% 在合理范围内` : 
+                    estimatedInterestRate >= 0.15 ? 
+                    `利息率 ${(estimatedInterestRate * 100).toFixed(2)}% 较高，可能存在高息借款` : 
+                    '利息率异常低，可能存在无息借款或数据不完整'
+            });
+            
+            // 10. 所得税费用与利润总额勾稽
+            const totalProfit = incomeStatement.current.净利润 + incomeStatement.current.所得税费用;
+            const effectiveTaxRate = incomeStatement.current.所得税费用 / totalProfit;
+            results.push({
+                id: 'income_tax_profit_reconciliation',
+                name: '所得税费用与利润总额勾稽',
+                formula: '所得税费用 ≈ 利润总额 × 适用税率',
+                actual: `${formatNumber(incomeStatement.current.所得税费用)} ≈ ${formatNumber(totalProfit)} × ${(effectiveTaxRate * 100).toFixed(2)}%`,
+                expected: '税率在法定范围',
+                status: effectiveTaxRate > 0.1 && effectiveTaxRate < 0.35 ? 'passed' : 'warning',
+                description: effectiveTaxRate >= 0.2 && effectiveTaxRate <= 0.25 ? 
+                    `实际税率 ${(effectiveTaxRate * 100).toFixed(2)}% 符合法定税率` : 
+                    effectiveTaxRate > 0.1 && effectiveTaxRate < 0.35 ? 
+                    `实际税率 ${(effectiveTaxRate * 100).toFixed(2)}% 存在税收优惠或调整` : 
+                    '实际税率异常，可能存在重大纳税调整或数据错误'
+            });
+            
+            return results;
+        }
+
+        // 更新勾稽关系概览
+        function updateReconciliationSummary(results) {
+            const passed = results.filter(r => r.status === 'passed').length;
+            const warning = results.filter(r => r.status === 'warning').length;
+            const failed = results.filter(r => r.status === 'failed').length;
+            
+            document.getElementById('passedChecks').textContent = passed;
+            document.getElementById('warningChecks').textContent = warning;
+            document.getElementById('failedChecks').textContent = failed;
+        }
+
+        // 生成详细核验结果表格
+        function generateReconciliationTable(results) {
+            const tableBody = document.getElementById('reconciliationTable');
+            tableBody.innerHTML = '';
+            
+            results.forEach(result => {
+                const row = document.createElement('tr');
+                row.className = 'hover:bg-gray-50 transition-colors';
+                
+                const statusClass = result.status === 'passed' ? 'text-success' : 
+                                  result.status === 'warning' ? 'text-warning' : 
+                                  result.status === 'failed' ? 'text-danger' : 'text-info';
+                
+                const statusIcon = result.status === 'passed' ? '✓' : 
+                                 result.status === 'warning' ? '⚠' : 
+                                 result.status === 'failed' ? '✗' : 'ℹ';
+                
+                row.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${result.name}</td>
+                    <td class="px-6 py-4 text-sm text-gray-500">${result.formula}</td>
+                    <td class="px-6 py-4 text-sm text-gray-900">${result.actual}</td>
+                    <td class="px-6 py-4 text-sm text-gray-500">${result.expected}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium ${statusClass}">
+                        <span class="inline-flex items-center">
+                            <span class="mr-1">${statusIcon}</span>
+                            ${result.status === 'passed' ? '通过' : result.status === 'warning' ? '警告' : result.status === 'failed' ? '失败' : '信息'}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 text-sm text-gray-500">${result.description}</td>
+                `;
+                
+                tableBody.appendChild(row);
+            });
+        }
+
+        // 生成问题汇总和建议
+        function generateReconciliationIssues(results) {
+            const issuesContainer = document.getElementById('reconciliationIssues');
+            issuesContainer.innerHTML = '';
+            
+            const warnings = results.filter(r => r.status === 'warning');
+            const failed = results.filter(r => r.status === 'failed');
+            
+            if (warnings.length === 0 && failed.length === 0) {
+                const successDiv = document.createElement('div');
+                successDiv.className = 'bg-success/10 border border-success/20 rounded-lg p-4';
+                successDiv.innerHTML = `
+                    <div class="flex items-start">
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-check-circle text-success text-xl"></i>
+                        </div>
+                        <div class="ml-3">
+                            <h4 class="text-lg font-semibold text-success">财务报表勾稽关系良好</h4>
+                            <p class="text-gray-700 mt-1">所有关键勾稽关系核验通过，财务数据一致性良好，报表质量较高。</p>
+                        </div>
+                    </div>
+                `;
+                issuesContainer.appendChild(successDiv);
+                return;
+            }
+            
+            // 生成问题汇总
+            const issuesDiv = document.createElement('div');
+            issuesDiv.className = 'bg-danger/10 border border-danger/20 rounded-lg p-4 mb-4';
+            issuesDiv.innerHTML = `
+                <div class="flex items-start">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-exclamation-triangle text-danger text-xl"></i>
+                    </div>
+                    <div class="ml-3">
+                        <h4 class="text-lg font-semibold text-danger">发现 ${failed.length} 个严重问题和 ${warnings.length} 个需要关注的事项</h4>
+                        <p class="text-gray-700 mt-1">请检查以下勾稽关系异常，可能存在数据错误或需要进一步说明。</p>
+                    </div>
+                </div>
+            `;
+            issuesContainer.appendChild(issuesDiv);
+            
+            // 生成详细问题列表
+            const allIssues = [...failed, ...warnings];
+            allIssues.forEach(issue => {
+                const issueDiv = document.createElement('div');
+                issueDiv.className = `bg-white border ${issue.status === 'failed' ? 'border-danger/30' : 'border-warning/30'} rounded-lg p-4 shadow-sm`;
+                
+                const statusClass = issue.status === 'failed' ? 'text-danger' : 'text-warning';
+                const statusText = issue.status === 'failed' ? '严重问题' : '需要关注';
+                
+                issueDiv.innerHTML = `
+                    <div class="flex items-start">
+                        <div class="flex-shrink-0">
+                            <i class="fas ${issue.status === 'failed' ? 'fa-times-circle' : 'fa-exclamation-circle'} ${statusClass} text-lg"></i>
+                        </div>
+                        <div class="ml-3 flex-1">
+                            <div class="flex items-center justify-between">
+                                <h5 class="font-semibold text-gray-900">${issue.name}</h5>
+                                <span class="text-sm font-medium ${statusClass}">${statusText}</span>
+                            </div>
+                            <p class="text-sm text-gray-600 mt-1">${issue.description}</p>
+                            <div class="mt-2 flex items-center text-sm text-gray-500">
+                                <span class="font-medium">核验公式:</span>
+                                <span class="ml-2">${issue.formula}</span>
+                            </div>
+                            <div class="mt-2 flex items-center text-sm text-gray-500">
+                                <span class="font-medium">实际结果:</span>
+                                <span class="ml-2">${issue.actual}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                issuesContainer.appendChild(issueDiv);
+            });
+            
+            // 生成改进建议
+            const suggestionsDiv = document.createElement('div');
+            suggestionsDiv.className = 'bg-primary/10 border border-primary/20 rounded-lg p-4 mt-4';
+            suggestionsDiv.innerHTML = `
+                <div class="flex items-start">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-lightbulb text-primary text-xl"></i>
+                    </div>
+                    <div class="ml-3">
+                        <h4 class="text-lg font-semibold text-primary">改进建议</h4>
+                        <ul class="mt-2 space-y-2 text-gray-700">
+                            <li class="flex items-start">
+                                <i class="fas fa-check text-success mt-1 mr-2"></i>
+                                <span>建议检查${failed.length > 0 ? '失败' : ''}${failed.length > 0 && warnings.length > 0 ? '和' : ''}${warnings.length > 0 ? '警告' : ''}项目的数据准确性，特别是${failed.length > 0 ? '资产负债表平衡、未分配利润勾稽、现金流量表勾稽等关键项目' : '应收账款增长、存货周转等运营指标'}</span>
+                            </li>
+                            <li class="flex items-start">
+                                <i class="fas fa-check text-success mt-1 mr-2"></i>
+                                <span>建议建立定期的财务报表勾稽关系检查机制，确保数据一致性</span>
+                            </li>
+                            <li class="flex items-start">
+                                <i class="fas fa-check text-success mt-1 mr-2"></i>
+                                <span>对于异常波动较大的财务指标，建议提供管理层说明</span>
+                            </li>
+                            <li class="flex items-start">
+                                <i class="fas fa-check text-success mt-1 mr-2"></i>
+                                <span>建议完善财务数据录入和审核流程，减少数据错误</span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            `;
+            issuesContainer.appendChild(suggestionsDiv);
+        }
+
+        // 创建勾稽关系图表
+        function createReconciliationChart() {
+            const ctx = document.getElementById('reconciliationChart').getContext('2d');
+            
+            // 获取核验结果统计
+            const passed = parseInt(document.getElementById('passedChecks').textContent) || 0;
+            const warning = parseInt(document.getElementById('warningChecks').textContent) || 0;
+            const failed = parseInt(document.getElementById('failedChecks').textContent) || 0;
+            
+            const data = {
+                labels: ['通过', '警告', '失败'],
+                datasets: [{
+                    data: [passed, warning, failed],
+                    backgroundColor: [
+                        'rgba(82, 196, 26, 0.8)',
+                        'rgba(250, 173, 20, 0.8)',
+                        'rgba(245, 34, 45, 0.8)'
+                    ],
+                    borderColor: [
+                        'rgba(82, 196, 26, 1)',
+                        'rgba(250, 173, 20, 1)',
+                        'rgba(245, 34, 45, 1)'
+                    ],
+                    borderWidth: 2,
+                    hoverOffset: 15
+                }]
+            };
+            
+            new Chart(ctx, {
+                type: 'doughnut',
+                data: data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                padding: 20,
+                                font: {
+                                    size: 14
+                                }
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const label = context.label || '';
+                                    const value = context.parsed || 0;
+                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    const percentage = Math.round((value / total) * 100);
+                                    return `${label}: ${value} (${percentage}%)`;
+                                }
+                            }
+                        }
+                    },
+                    cutout: '60%',
+                    animation: {
+                        animateScale: true,
+                        animateRotate: true
+                    }
+                }
+            });
+            
+            // 创建三大报表勾稽关系示意图
+            createReconciliationDiagram();
+        }
+
+        // 创建三大报表勾稽关系示意图
+        function createReconciliationDiagram() {
+            const container = document.getElementById('reconciliationDiagram');
+            
+            // 使用HTML和CSS创建简化的关系图
+            container.innerHTML = `
+                <div class="relative h-full flex items-center justify-center">
+                    <!-- 资产负债表 -->
+                    <div class="absolute left-0 top-1/2 transform -translate-y-1/2 bg-blue-100 border-2 border-blue-500 rounded-lg p-4 w-48 text-center">
+                        <h4 class="font-bold text-blue-700">资产负债表</h4>
+                        <div class="mt-2 text-sm">
+                            <p>资产 = 负债 + 权益</p>
+                            <p class="text-blue-600 font-medium mt-1">未分配利润</p>
+                            <p class="text-blue-600 font-medium mt-1">货币资金</p>
+                        </div>
+                    </div>
+                    
+                    <!-- 利润表 -->
+                    <div class="absolute top-0 left-1/2 transform -translate-x-1/2 bg-green-100 border-2 border-green-500 rounded-lg p-4 w-48 text-center">
+                        <h4 class="font-bold text-green-700">利润表</h4>
+                        <div class="mt-2 text-sm">
+                            <p>收入 - 费用 = 利润</p>
+                            <p class="text-green-600 font-medium mt-1">净利润</p>
+                        </div>
+                    </div>
+                    
+                    <!-- 现金流量表 -->
+                    <div class="absolute right-0 top-1/2 transform -translate-y-1/2 bg-orange-100 border-2 border-orange-500 rounded-lg p-4 w-48 text-center">
+                        <h4 class="font-bold text-orange-700">现金流量表</h4>
+                        <div class="mt-2 text-sm">
+                            <p>现金流净额 = 现金流入 - 现金流出</p>
+                            <p class="text-orange-600 font-medium mt-1">经营活动现金流</p>
+                        </div>
+                    </div>
+                    
+                    <!-- 连接线 -->
+                    <svg class="absolute inset-0 w-full h-full" style="z-index: -1;">
+                        <!-- 利润表到资产负债表 -->
+                        <path d="M 250,80 C 250,120 200,140 200,160" stroke="#22c55e" stroke-width="3" fill="none" stroke-dasharray="5,5" />
+                        <polygon points="200,160 205,155 195,155" fill="#22c55e" />
+                        <text x="225" y="130" fill="#22c55e" font-size="12" text-anchor="middle">未分配利润勾稽</text>
+                        
+                        <!-- 现金流量表到资产负债表 -->
+                        <path d="M 350,160 C 300,160 300,160 280,160" stroke="#f97316" stroke-width="3" fill="none" stroke-dasharray="5,5" />
+                        <polygon points="280,160 285,165 285,155" fill="#f97316" />
+                        <text x="315" y="175" fill="#f97316" font-size="12" text-anchor="middle">货币资金勾稽</text>
+                        
+                        <!-- 利润表到现金流量表 -->
+                        <path d="M 350,80 C 400,120 400,140 400,160" stroke="#6366f1" stroke-width="3" fill="none" stroke-dasharray="5,5" />
+                        <polygon points="400,160 395,155 405,155" fill="#6366f1" />
+                        <text x="375" y="130" fill="#6366f1" font-size="12" text-anchor="middle">净利润与经营现金流勾稽</text>
+                    </svg>
+                </div>
+            `;
+        }
+    </script>
+</body>
+</html>
